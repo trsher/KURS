@@ -115,10 +115,9 @@ class LoginWindow(QMainWindow):
         password = self.password_input.text()
         try:
             session = Connect.create_connection()
-            # Теперь фильтруем по login, так как это первичный ключ
             admin = session.query(Admin).filter_by(login=login).first()
             session.close()
-            if admin and admin.password == password:  # Проверяем пароль явно
+            if admin and admin.password == password:
                 self.hide()
                 self.admin_panel = AdminPanel(login)
                 self.admin_panel.show()

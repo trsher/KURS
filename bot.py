@@ -1,7 +1,7 @@
 import telebot
 from telebot import types
 from sqlalchemy.orm import Session
-from database import Connect, User, Task, TaskLog, PriorityLevel
+from database import Connect, User, Task, TaskLog
 from datetime import datetime
 import pytz
 
