@@ -11,18 +11,19 @@ from PySide6.QtGui import QFont, QIcon, QPainter, QColor, QBrush, QPen, QPixmap
 from ui_elements import CustomAddButton, RoundedButton, EmployeeWidget, UnconfirmedEmployeeWidget
 from dialogs import EmployeeEditDialog, TaskEditDialog
 from database import Connect, Admin, User, Task, TaskLog, PriorityLevel
-from bot import save_user_profile_photo, notify_and_show_menu
+from bot import notify_and_show_menu
 
-# Настройка логирования
+# Настройка логирования для записи в файл
 logging.basicConfig(
     filename='app.log',
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# Загрузка переменных окружения
+# Загрузка переменных окружения из файла .env
 load_dotenv()
 
+# Виджет для отображения уведомлений
 class NotificationWidget(QWidget):
     def __init__(self, message, theme=False, parent=None):
         super().__init__(parent)
@@ -49,6 +50,7 @@ class NotificationWidget(QWidget):
         self.timer.timeout.connect(self.hide_notification)
         self.timer.start(5000)
 
+    # Применение стилей для уведомления
     def apply_styles(self):
         bg_color = "#3889F2" if not self.theme else "#2A6FD6"
         self.setStyleSheet(f"""
@@ -60,6 +62,7 @@ class NotificationWidget(QWidget):
             }}
         """)
 
+    # Показ уведомления с анимацией
     def show_notification(self):
         self.apply_styles()
         self.show()
@@ -69,18 +72,21 @@ class NotificationWidget(QWidget):
         self.animation.setEndValue(end_pos)
         self.animation.start()
 
+    # Скрытие уведомления с анимацией
     def hide_notification(self):
         self.animation.setStartValue(self.pos())
         self.animation.setEndValue(QPoint(self.width(), 20))
         self.animation.finished.connect(self.deleteLater)
         self.animation.start()
 
+    # Обновление темы уведомления
     def set_theme(self, theme):
         self.theme = theme
         self.apply_styles()
         for label in self.findChildren(QLabel):
             label.setStyleSheet("color: #FFFFFF; background: transparent;")
 
+# Делегат для отрисовки задач в списке
 class TaskItemDelegate(QStyledItemDelegate):
     def __init__(self, theme=False, parent=None):
         super().__init__(parent)
@@ -88,9 +94,11 @@ class TaskItemDelegate(QStyledItemDelegate):
         self.margin_top = 30
         self.margin_bottom = 30
 
+    # Определение размера элемента списка
     def sizeHint(self, option, index):
         return QSize(900, 100 + self.margin_top + self.margin_bottom)
 
+    # Отрисовка элемента задачи
     def paint(self, painter, option, index):
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing)
@@ -126,6 +134,7 @@ class TaskItemDelegate(QStyledItemDelegate):
 
         painter.restore()
 
+    # Определение цвета индикатора приоритета
     def get_priority_color(self, priority):
         if priority.value == "Низкий":
             return QColor("#47D155")
@@ -135,9 +144,11 @@ class TaskItemDelegate(QStyledItemDelegate):
             return QColor("#EB3232")
         return QColor("#888")
 
+    # Обновление темы делегата
     def set_theme(self, theme):
         self.theme = theme
 
+# Делегат для отрисовки сотрудников
 class EmployeeItemDelegate(QStyledItemDelegate):
     def __init__(self, theme=False, parent=None):
         super().__init__(parent)
@@ -145,16 +156,19 @@ class EmployeeItemDelegate(QStyledItemDelegate):
         self.margin_top = 30
         self.margin_bottom = 30
 
+    # Определение размера элемента списка
     def sizeHint(self, option, index):
         return QSize(900, 150 + self.margin_top + self.margin_bottom)
 
+    # Отрисовка элемента сотрудника (обрабатывается в EmployeeWidget)
     def paint(self, painter, option, index):
-        # Делегат не должен перехватывать отрисовку, так как она происходит в EmployeeWidget
         super().paint(painter, option, index)
 
+    # Обновление темы делегата
     def set_theme(self, theme):
         self.theme = theme
 
+# Делегат для отрисовки неподтвержденных сотрудников
 class UnconfirmedEmployeeItemDelegate(QStyledItemDelegate):
     def __init__(self, theme=False, parent=None):
         super().__init__(parent)
@@ -162,9 +176,11 @@ class UnconfirmedEmployeeItemDelegate(QStyledItemDelegate):
         self.margin_top = 30
         self.margin_bottom = 30
 
+    # Определение размера элемента списка
     def sizeHint(self, option, index):
         return QSize(option.rect.width() - 20, 150 + self.margin_top + self.margin_bottom)
 
+    # Отрисовка элемента неподтвержденного сотрудника
     def paint(self, painter, option, index):
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing)
@@ -185,7 +201,6 @@ class UnconfirmedEmployeeItemDelegate(QStyledItemDelegate):
         painter.setBrush(QBrush(QColor(bg_color)))
         painter.drawRoundedRect(card_rect, 15, 15)
 
-        # Добавьте отрисовку имени и других данных сотрудника
         painter.setPen(QColor(text_color))
         painter.setFont(QFont("Montserrat", 18, QFont.Bold))
         text_rect = card_rect.adjusted(20, 0, -20, 0)
@@ -193,9 +208,11 @@ class UnconfirmedEmployeeItemDelegate(QStyledItemDelegate):
 
         painter.restore()
 
+    # Обновление темы делегата
     def set_theme(self, theme):
         self.theme = theme
 
+# Окно авторизации
 class LoginWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -254,6 +271,7 @@ class LoginWindow(QMainWindow):
         main_layout.addWidget(self.login_btn, alignment=Qt.AlignCenter)
         main_layout.addStretch()
 
+    # Аутентификация администратора
     def authenticate(self):
         login = self.login_input.text()
         password = self.password_input.text()
@@ -275,6 +293,7 @@ class LoginWindow(QMainWindow):
             logging.error(f"Ошибка авторизации: {e}")
             QMessageBox.critical(self, "Ошибка", "Не удалось подключиться к базе данных.")
 
+    # Применение темы для окна авторизации
     def set_theme(self, theme):
         self.current_theme = theme
         if not theme:
@@ -292,6 +311,7 @@ class LoginWindow(QMainWindow):
             self.password_input.setStyleSheet("color: #FFFFFF; border: 2px solid #FFFFFF; border-radius: 15px; padding: 5px; background-color: #3D3D3D;")
             self.login_btn.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 15px;")
 
+# Главная панель администратора
 class AdminPanel(QMainWindow):
     def __init__(self, login, initial_theme=False):
         super().__init__()
@@ -439,6 +459,7 @@ class AdminPanel(QMainWindow):
         else:
             self.apply_light_theme()
 
+    # Обновление подсветки кнопок навигации
     def update_button_highlight(self, index):
         icon_path = "icons/"
         def load_icon(filename):
@@ -479,6 +500,7 @@ class AdminPanel(QMainWindow):
         self.employees_btn.setIcon(load_icon("Emploeg.PNG" if index == 1 else "Emploe.PNG"))
         self.settings_btn.setIcon(load_icon("Settingg.PNG" if index == 3 else "Setting.PNG"))
 
+    # Плавная прокрутка списка
     def smooth_scroll(self, target_value, scrollbar):
         animation_attr = f"scroll_animation_{id(scrollbar)}"
         if hasattr(self, animation_attr) and getattr(self, animation_attr).state() == QAbstractAnimation.Running:
@@ -492,6 +514,7 @@ class AdminPanel(QMainWindow):
         setattr(self, animation_attr, animation)
         animation.start()
 
+    # Настройка страницы задач
     def setup_tasks_page(self, layout):
         tasks_label = QLabel("Задачи")
         tasks_label.setObjectName("tasks_label")
@@ -527,6 +550,7 @@ class AdminPanel(QMainWindow):
             self.tasks_page.width() - 100 - 40, self.tasks_page.height() - 100 - 40
         )
 
+    # Настройка страницы сотрудников
     def setup_employees_page(self, layout):
         employees_label = QLabel("Сотрудники")
         employees_label.setObjectName("employees_label")
@@ -567,6 +591,7 @@ class AdminPanel(QMainWindow):
 
         self.load_employees()
 
+    # Настройка страницы подтверждения сотрудников
     def setup_confirmation_page(self, layout):
         confirmation_label = QLabel("Подтверждение")
         confirmation_label.setObjectName("confirmation_label")
@@ -591,6 +616,7 @@ class AdminPanel(QMainWindow):
         test_btn.clicked.connect(self.load_unconfirmed_employees)
         layout.addWidget(test_btn, alignment=Qt.AlignHCenter)
 
+    # Настройка страницы настроек
     def setup_settings_page(self, layout):
         settings_label = QLabel("Настройки")
         settings_label.setObjectName("settings_label")
@@ -902,18 +928,21 @@ class AdminPanel(QMainWindow):
         layout.addWidget(self.settings_stack)
         layout.addWidget(nav_container)
 
+    # Переключение на предыдущую карточку настроек
     def prev_settings_card(self):
         current_index = self.settings_stack.currentIndex()
         if current_index > 0:
             self.settings_stack.setCurrentIndex(current_index - 1)
             self.update_indicators(current_index - 1)
 
+    # Переключение на следующую карточку настроек
     def next_settings_card(self):
         current_index = self.settings_stack.currentIndex()
         if current_index < self.settings_stack.count() - 1:
             self.settings_stack.setCurrentIndex(current_index + 1)
             self.update_indicators(current_index + 1)
 
+    # Обновление индикаторов активной карточки
     def update_indicators(self, active_index):
         for i, indicator in enumerate(self.indicators):
             if i == active_index:
@@ -921,6 +950,7 @@ class AdminPanel(QMainWindow):
             else:
                 indicator.setStyleSheet(f"background-color: {'#CCCCCC' if not self.current_theme else '#666666'}; border-radius: 7px;")
 
+    # Сохранение настроек профиля
     def save_profile_settings(self):
         new_username = self.username_input.text().strip()
         old_password = self.old_password_input.text().strip()
@@ -953,6 +983,7 @@ class AdminPanel(QMainWindow):
             logging.error(f"Ошибка сохранения настроек профиля: {e}")
             QMessageBox.critical(self, "Ошибка", "Не удалось сохранить настройки профиля.")
 
+    # Смена темы интерфейса
     def change_theme(self, theme):
         self.current_theme = theme
         if not theme:
@@ -973,366 +1004,380 @@ class AdminPanel(QMainWindow):
         except Exception as e:
             logging.error(f"Ошибка сохранения темы: {e}")
 
+    # Обновление стилей списка задач в зависимости от темы
     def update_tasks_list_style(self):
         if not self.current_theme:
+            # Светлая тема для списка задач
             self.tasks_list.setStyleSheet("""
                 QListWidget {
-                    background-color: #F2F2F2;
-                    color: #0D0D0D;
-                    border: none;
-                    padding: 0px;
-                    margin: 0px;
+                    background-color: #F2F2F2; /* Фон списка */
+                    color: #0D0D0D; /* Цвет текста */
+                    border: none; /* Без границы */
+                    padding: 0px; /* Без отступов */
+                    margin: 0px; /* Без внешних отступов */
                 }
                 QScrollBar:vertical {
-                    border: 1px solid #CCCCCC;
-                    background: #E5E5E5;
-                    width: 14px;
-                    margin: 22px 0 22px 0;
-                    border-radius: 7px;
+                    border: 1px solid #CCCCCC; /* Граница полосы прокрутки */
+                    background: #E5E5E5; /* Фон полосы прокрутки */
+                    width: 14px; /* Ширина полосы */
+                    margin: 22px 0 22px 0; /* Отступы сверху и снизу */
+                    border-radius: 7px; /* Закругление углов */
                 }
                 QScrollBar::handle:vertical {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2);
-                    min-height: 30px;
-                    border-radius: 5px;
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2); /* Градиент ручки */
+                    min-height: 30px; /* Минимальная высота ручки */
+                    border-radius: 5px; /* Закругление углов ручки */
                 }
                 QScrollBar::handle:vertical:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2); /* Градиент при наведении */
                 }
                 QScrollBar::handle:vertical:pressed {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582); /* Градиент при нажатии */
                 }
                 QScrollBar::add-line:vertical {
-                    border: none;
-                    background: #E5E5E5;
-                    height: 20px;
-                    subcontrol-position: bottom;
-                    subcontrol-origin: margin;
-                    border-bottom-left-radius: 7px;
-                    border-bottom-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #E5E5E5; /* Фон кнопки добавления */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: bottom; /* Положение внизу */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-bottom-left-radius: 7px; /* Закругление нижнего левого угла */
+                    border-bottom-right-radius: 7px; /* Закругление нижнего правого угла */
                 }
                 QScrollBar::sub-line:vertical {
-                    border: none;
-                    background: #E5E5E5;
-                    height: 20px;
-                    subcontrol-position: top;
-                    subcontrol-origin: margin;
-                    border-top-left-radius: 7px;
-                    border-top-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #E5E5E5; /* Фон кнопки вычитания */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: top; /* Положение сверху */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-top-left-radius: 7px; /* Закругление верхнего левого угла */
+                    border-top-right-radius: 7px; /* Закругление верхнего правого угла */
                 }
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
-                    background: none;
+                    background: none; /* Без фона для стрелок */
                 }
                 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                    background: none;
+                    background: none; /* Без фона для страниц */
                 }
             """)
         else:
+            # Тёмная тема для списка задач
             self.tasks_list.setStyleSheet("""
                 QListWidget {
-                    background-color: #2D2D2D;
-                    color: #FFFFFF;
-                    border: none;
-                    padding: 0px;
-                    margin: 0px;
+                    background-color: #2D2D2D; /* Фон списка */
+                    color: #FFFFFF; /* Цвет текста */
+                    border: none; /* Без границы */
+                    padding: 0px; /* Без отступов */
+                    margin: 0px; /* Без внешних отступов */
                 }
                 QScrollBar:vertical {
-                    border: 1px solid #555555;
-                    background: #3D3D3D;
-                    width: 14px;
-                    margin: 22px 0 22px 0;
-                    border-radius: 7px;
+                    border: 1px solid #555555; /* Граница полосы прокрутки */
+                    background: #3D3D3D; /* Фон полосы прокрутки */
+                    width: 14px; /* Ширина полосы */
+                    margin: 22px 0 22px 0; /* Отступы сверху и снизу */
+                    border-radius: 7px; /* Закругление углов */
                 }
                 QScrollBar::handle:vertical {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2);
-                    min-height: 30px;
-                    border-radius: 5px;
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2); /* Градиент ручки */
+                    min-height: 30px; /* Минимальная высота ручки */
+                    border-radius: 5px; /* Закругление углов ручки */
                 }
                 QScrollBar::handle:vertical:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2); /* Градиент при наведении */
                 }
                 QScrollBar::handle:vertical:pressed {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582); /* Градиент при нажатии */
                 }
                 QScrollBar::add-line:vertical {
-                    border: none;
-                    background: #3D3D3D;
-                    height: 20px;
-                    subcontrol-position: bottom;
-                    subcontrol-origin: margin;
-                    border-bottom-left-radius: 7px;
-                    border-bottom-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #3D3D3D; /* Фон кнопки добавления */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: bottom; /* Положение внизу */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-bottom-left-radius: 7px; /* Закругление нижнего левого угла */
+                    border-bottom-right-radius: 7px; /* Закругление нижнего правого угла */
                 }
                 QScrollBar::sub-line:vertical {
-                    border: none;
-                    background: #3D3D3D;
-                    height: 20px;
-                    subcontrol-position: top;
-                    subcontrol-origin: margin;
-                    border-top-left-radius: 7px;
-                    border-top-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #3D3D3D; /* Фон кнопки вычитания */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: top; /* Положение сверху */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-top-left-radius: 7px; /* Закругление верхнего левого угла */
+                    border-top-right-radius: 7px; /* Закругление верхнего правого угла */
                 }
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
-                    background: none;
+                    background: none; /* Без фона для стрелок */
                 }
                 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                    background: none;
+                    background: none; /* Без фона для страниц */
                 }
             """)
 
+    # Обновление стилей списка сотрудников в зависимости от темы
     def update_employees_list_style(self):
         if not self.current_theme:
+            # Светлая тема для списка сотрудников
             self.employees_list.setStyleSheet("""
                 QListWidget {
-                    background-color: #F2F2F2;
-                    color: #0D0D0D;
-                    border: none;
-                    padding: 0px;
-                    margin: 0px;
+                    background-color: #F2F2F2; /* Фон списка */
+                    color: #0D0D0D; /* Цвет текста */
+                    border: none; /* Без границы */
+                    padding: 0px; /* Без отступов */
+                    margin: 0px; /* Без внешних отступов */
                 }
                 QScrollBar:vertical {
-                    border: 1px solid #CCCCCC;
-                    background: #E5E5E5;
-                    width: 14px;
-                    margin: 22px 0 22px 0;
-                    border-radius: 7px;
+                    border: 1px solid #CCCCCC; /* Граница полосы прокрутки */
+                    background: #E5E5E5; /* Фон полосы прокрутки */
+                    width: 14px; /* Ширина полосы */
+                    margin: 22px 0 22px 0; /* Отступы сверху и снизу */
+                    border-radius: 7px; /* Закругление углов */
                 }
                 QScrollBar::handle:vertical {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2);
-                    min-height: 30px;
-                    border-radius: 5px;
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2); /* Градиент ручки */
+                    min-height: 30px; /* Минимальная высота ручки */
+                    border-radius: 5px; /* Закругление углов ручки */
                 }
                 QScrollBar::handle:vertical:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2); /* Градиент при наведении */
                 }
                 QScrollBar::handle:vertical:pressed {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582); /* Градиент при нажатии */
                 }
                 QScrollBar::add-line:vertical {
-                    border: none;
-                    background: #E5E5E5;
-                    height: 20px;
-                    subcontrol-position: bottom;
-                    subcontrol-origin: margin;
-                    border-bottom-left-radius: 7px;
-                    border-bottom-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #E5E5E5; /* Фон кнопки добавления */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: bottom; /* Положение внизу */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-bottom-left-radius: 7px; /* Закругление нижнего левого угла */
+                    border-bottom-right-radius: 7px; /* Закругление нижнего правого угла */
                 }
                 QScrollBar::sub-line:vertical {
-                    border: none;
-                    background: #E5E5E5;
-                    height: 20px;
-                    subcontrol-position: top;
-                    subcontrol-origin: margin;
-                    border-top-left-radius: 7px;
-                    border-top-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #E5E5E5; /* Фон кнопки вычитания */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: top; /* Положение сверху */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-top-left-radius: 7px; /* Закругление верхнего левого угла */
+                    border-top-right-radius: 7px; /* Закругление верхнего правого угла */
                 }
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
-                    background: none;
+                    background: none; /* Без фона для стрелок */
                 }
                 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                    background: none;
+                    background: none; /* Без фона для страниц */
                 }
             """)
         else:
+            # Тёмная тема для списка сотрудников
             self.employees_list.setStyleSheet("""
                 QListWidget {
-                    background-color: #2D2D2D;
-                    color: #FFFFFF;
-                    border: none;
-                    padding: 0px;
-                    margin: 0px;
+                    background-color: #2D2D2D; /* Фон списка */
+                    color: #FFFFFF; /* Цвет текста */
+                    border: none; /* Без границы */
+                    padding: 0px; /* Без отступов */
+                    margin: 0px; /* Без внешних отступов */
                 }
                 QScrollBar:vertical {
-                    border: 1px solid #555555;
-                    background: #3D3D3D;
-                    width: 14px;
-                    margin: 22px 0 22px 0;
-                    border-radius: 7px;
+                    border: 1px solid #555555; /* Граница полосы прокрутки */
+                    background: #3D3D3D; /* Фон полосы прокрутки */
+                    width: 14px; /* Ширина полосы */
+                    margin: 22px 0 22px 0; /* Отступы сверху и снизу */
+                    border-radius: 7px; /* Закругление углов */
                 }
                 QScrollBar::handle:vertical {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2);
-                    min-height: 30px;
-                    border-radius: 5px;
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2); /* Градиент ручки */
+                    min-height: 30px; /* Минимальная высота ручки */
+                    border-radius: 5px; /* Закругление углов ручки */
                 }
                 QScrollBar::handle:vertical:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2); /* Градиент при наведении */
                 }
                 QScrollBar::handle:vertical:pressed {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582); /* Градиент при нажатии */
                 }
                 QScrollBar::add-line:vertical {
-                    border: none;
-                    background: #3D3D3D;
-                    height: 20px;
-                    subcontrol-position: bottom;
-                    subcontrol-origin: margin;
-                    border-bottom-left-radius: 7px;
-                    border-bottom-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #3D3D3D; /* Фон кнопки добавления */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: bottom; /* Положение внизу */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-bottom-left-radius: 7px; /* Закругление нижнего левого угла */
+                    border-bottom-right-radius: 7px; /* Закругление нижнего правого угла */
                 }
                 QScrollBar::sub-line:vertical {
-                    border: none;
-                    background: #3D3D3D;
-                    height: 20px;
-                    subcontrol-position: top;
-                    subcontrol-origin: margin;
-                    border-top-left-radius: 7px;
-                    border-top-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #3D3D3D; /* Фон кнопки вычитания */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: top; /* Положение сверху */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-top-left-radius: 7px; /* Закругление верхнего левого угла */
+                    border-top-right-radius: 7px; /* Закругление верхнего правого угла */
                 }
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
-                    background: none;
+                    background: none; /* Без фона для стрелок */
                 }
                 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                    background: none;
+                    background: none; /* Без фона для страниц */
                 }
             """)
-        self.employees_list.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.employees_list.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)  # Установка политики отображения полосы прокрутки
 
+    # Обновление стилей списка неподтверждённых сотрудников в зависимости от темы
     def update_unconfirmed_list_style(self):
         if not self.current_theme:
+            # Светлая тема для списка неподтверждённых сотрудников
             self.unconfirmed_list.setStyleSheet("""
                 QListWidget {
-                    background-color: #F2F2F2;
-                    color: #0D0D0D;
-                    border: none;
-                    padding: 0px;
-                    margin: 0px;
+                    background-color: #F2F2F2; /* Фон списка */
+                    color: #0D0D0D; /* Цвет текста */
+                    border: none; /* Без границы */
+                    padding: 0px; /* Без отступов */
+                    margin: 0px; /* Без внешних отступов */
                 }
                 QScrollBar:vertical {
-                    border: 1px solid #CCCCCC;
-                    background: #E5E5E5;
-                    width: 14px;
-                    margin: 22px 0 22px 0;
-                    border-radius: 7px;
+                    border: 1px solid #CCCCCC; /* Граница полосы прокрутки */
+                    background: #E5E5E5; /* Фон полосы прокрутки */
+                    width: 14px; /* Ширина полосы */
+                    margin: 22px 0 22px 0; /* Отступы сверху и снизу */
+                    border-radius: 7px; /* Закругление углов */
                 }
                 QScrollBar::handle:vertical {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2);
-                    min-height: 30px;
-                    border-radius: 5px;
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2); /* Градиент ручки */
+                    min-height: 30px; /* Минимальная высота ручки */
+                    border-radius: 5px; /* Закругление углов ручки */
                 }
                 QScrollBar::handle:vertical:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2); /* Градиент при наведении */
                 }
                 QScrollBar::handle:vertical:pressed {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582); /* Градиент при нажатии */
                 }
                 QScrollBar::add-line:vertical {
-                    border: none;
-                    background: #E5E5E5;
-                    height: 20px;
-                    subcontrol-position: bottom;
-                    subcontrol-origin: margin;
-                    border-bottom-left-radius: 7px;
-                    border-bottom-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #E5E5E5; /* Фон кнопки добавления */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: bottom; /* Положение внизу */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-bottom-left-radius: 7px; /* Закругление нижнего левого угла */
+                    border-bottom-right-radius: 7px; /* Закругление нижнего правого угла */
                 }
                 QScrollBar::sub-line:vertical {
-                    border: none;
-                    background: #E5E5E5;
-                    height: 20px;
-                    subcontrol-position: top;
-                    subcontrol-origin: margin;
-                    border-top-left-radius: 7px;
-                    border-top-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #E5E5E5; /* Фон кнопки вычитания */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: top; /* Положение сверху */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-top-left-radius: 7px; /* Закругление верхнего левого угла */
+                    border-top-right-radius: 7px; /* Закругление верхнего правого угла */
                 }
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
-                    background: none;
+                    background: none; /* Без фона для стрелок */
                 }
                 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                    background: none;
+                    background: none; /* Без фона для страниц */
                 }
             """)
         else:
+            # Тёмная тема для списка неподтверждённых сотрудников
             self.unconfirmed_list.setStyleSheet("""
                 QListWidget {
-                    background-color: #2D2D2D;
-                    color: #FFFFFF;
-                    border: none;
-                    padding: 0px;
-                    margin: 0px;
+                    background-color: #2D2D2D; /* Фон списка */
+                    color: #FFFFFF; /* Цвет текста */
+                    border: none; /* Без границы */
+                    padding: 0px; /* Без отступов */
+                    margin: 0px; /* Без внешних отступов */
                 }
                 QScrollBar:vertical {
-                    border: 1px solid #555555;
-                    background: #3D3D3D;
-                    width: 14px;
-                    margin: 22px 0 22px 0;
-                    border-radius: 7px;
+                    border: 1px solid #555555; /* Граница полосы прокрутки */
+                    background: #3D3D3D; /* Фон полосы прокрутки */
+                    width: 14px; /* Ширина полосы */
+                    margin: 22px 0 22px 0; /* Отступы сверху и снизу */
+                    border-radius: 7px; /* Закругление углов */
                 }
                 QScrollBar::handle:vertical {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2);
-                    min-height: 30px;
-                    border-radius: 5px;
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0554F2, stop:1 #0443C2); /* Градиент ручки */
+                    min-height: 30px; /* Минимальная высота ручки */
+                    border-radius: 5px; /* Закругление углов ручки */
                 }
                 QScrollBar::handle:vertical:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0443C2, stop:1 #0335A2); /* Градиент при наведении */
                 }
                 QScrollBar::handle:vertical:pressed {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582);
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0335A2, stop:1 #022582); /* Градиент при нажатии */
                 }
                 QScrollBar::add-line:vertical {
-                    border: none;
-                    background: #3D3D3D;
-                    height: 20px;
-                    subcontrol-position: bottom;
-                    subcontrol-origin: margin;
-                    border-bottom-left-radius: 7px;
-                    border-bottom-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #3D3D3D; /* Фон кнопки добавления */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: bottom; /* Положение внизу */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-bottom-left-radius: 7px; /* Закругление нижнего левого угла */
+                    border-bottom-right-radius: 7px; /* Закругление нижнего правого угла */
                 }
                 QScrollBar::sub-line:vertical {
-                    border: none;
-                    background: #3D3D3D;
-                    height: 20px;
-                    subcontrol-position: top;
-                    subcontrol-origin: margin;
-                    border-top-left-radius: 7px;
-                    border-top-right-radius: 7px;
+                    border: none; /* Без границы */
+                    background: #3D3D3D; /* Фон кнопки вычитания */
+                    height: 20px; /* Высота кнопки */
+                    subcontrol-position: top; /* Положение сверху */
+                    subcontrol-origin: margin; /* Происхождение отступа */
+                    border-top-left-radius: 7px; /* Закругление верхнего левого угла */
+                    border-top-right-radius: 7px; /* Закругление верхнего правого угла */
                 }
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
-                    background: none;
+                    background: none; /* Без фона для стрелок */
                 }
                 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                    background: none;
+                    background: none; /* Без фона для страниц */
                 }
             """)
 
+    # Применение светлой темы ко всем элементам интерфейса
     def apply_light_theme(self):
         self.current_theme = False
-        self.centralWidget().setStyleSheet("background-color: #F2F2F2;")
-        self.confirmation_page.setStyleSheet("background-color: #F2F2F2;")
+        self.centralWidget().setStyleSheet("background-color: #F2F2F2;")  # Фон главного виджета
+        self.confirmation_page.setStyleSheet("background-color: #F2F2F2;")  # Фон страницы подтверждения
         nav_frame = self.findChild(QFrame, "", Qt.FindDirectChildrenOnly)
         if nav_frame:
-            nav_frame.setStyleSheet("background-color: #0554F2; border-radius: 60px;")
+            nav_frame.setStyleSheet("background-color: #0554F2; border-radius: 60px;")  # Стили панели навигации
 
+        # Обновление стилей карточек настроек
         for i in range(self.settings_stack.count()):
             frame = self.settings_stack.widget(i)
-            frame.setStyleSheet("background-color: #FFFFFF; border-radius: 20px;")
+            frame.setStyleSheet("background-color: #FFFFFF; border-radius: 20px;")  # Фон карточки
             for child in frame.findChildren(QWidget):
                 if isinstance(child, QLabel) and child.objectName() == "card_title":
-                    child.setStyleSheet("color: #0D0D0D;")
+                    child.setStyleSheet("color: #0D0D0D;")  # Цвет заголовка карточки
                 elif isinstance(child, QLabel) and child.objectName() != "card_title":
-                    child.setStyleSheet("color: #0D0D0D;")
+                    child.setStyleSheet("color: #0D0D0D;")  # Цвет остальных меток
                 elif isinstance(child, QLineEdit):
-                    child.setStyleSheet("color: #0D0D0D; border: 2px solid #0D0D0D; border-radius: 15px; padding: 10px; background-color: #FFFFFF;")
+                    child.setStyleSheet("color: #0D0D0D; border: 2px solid #0D0D0D; border-radius: 15px; padding: 10px; background-color: #FFFFFF;")  # Стили полей ввода
                 elif isinstance(child, QPushButton) and child.objectName() in ["user_notif_toggle", "sound_notif_toggle"]:
-                    child.setStyleSheet(f"background-color: {'#47D155' if child.isChecked() else '#EB3232'}; color: #F2F2F2; border-radius: 15px; border: none;")
+                    child.setStyleSheet(f"background-color: {'#47D155' if child.isChecked() else '#EB3232'}; color: #F2F2F2; border-radius: 15px; border: none;")  # Стили переключателей уведомлений
                 elif isinstance(child, QPushButton):
-                    child.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 15px; border: none;")
+                    child.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 15px; border: none;")  # Стили остальных кнопок
 
+        # Обновление индикаторов активной карточки настроек
         active_index = self.settings_stack.currentIndex()
         for i, indicator in enumerate(self.indicators):
             if i == active_index:
-                indicator.setStyleSheet("background-color: #0554F2; border-radius: 7px;")
+                indicator.setStyleSheet("background-color: #0554F2; border-radius: 7px;")  # Активный индикатор
             else:
-                indicator.setStyleSheet("background-color: #CCCCCC; border-radius: 7px;")
+                indicator.setStyleSheet("background-color: #CCCCCC; border-radius: 7px;")  # Неактивные индикаторы
 
-        self.prev_btn.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 30px; border: none;")
-        self.next_btn.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 30px; border: none;")
+        self.prev_btn.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 30px; border: none;")  # Кнопка "Назад"
+        self.next_btn.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 30px; border: none;")  # Кнопка "Вперёд"
 
+        # Обновление стилей списка задач
         self.update_tasks_list_style()
         for delegate in self.tasks_list.findChildren(TaskItemDelegate):
-            delegate.set_theme(False)
-        self.tasks_list.viewport().update()
+            delegate.set_theme(False)  # Установка светлой темы для делегата
+        self.tasks_list.viewport().update()  # Обновление области просмотра
 
+        # Обновление стилей списка сотрудников
         self.update_employees_list_style()
         for delegate in self.employees_list.findChildren(EmployeeItemDelegate):
-            delegate.set_theme(False)
+            delegate.set_theme(False)  # Установка светлой темы для делегата
         for i in range(self.employees_list.count()):
             item = self.employees_list.item(i)
             container = self.employees_list.itemWidget(item)
@@ -1341,19 +1386,20 @@ class AdminPanel(QMainWindow):
                 widget = child
                 break
             if widget:
-                widget.update_styles(False)
-                widget.setFixedSize(900, 150)
+                widget.update_styles(False)  # Обновление стилей виджета сотрудника
+                widget.setFixedSize(900, 150)  # Фиксированный размер виджета
                 widget.update()
                 widget.repaint()
                 container.update()
                 container.repaint()
-        self.employees_list.updateGeometry()
-        self.employees_list.viewport().update()
-        self.employees_list.repaint()
+        self.employees_list.updateGeometry()  # Обновление геометрии списка
+        self.employees_list.viewport().update()  # Обновление области просмотра
+        self.employees_list.repaint()  # Перерисовка списка
 
+        # Обновление стилей списка неподтверждённых сотрудников
         self.update_unconfirmed_list_style()
         for delegate in self.unconfirmed_list.findChildren(UnconfirmedEmployeeItemDelegate):
-            delegate.set_theme(False)
+            delegate.set_theme(False)  # Установка светлой темы для делегата
         for i in range(self.unconfirmed_list.count()):
             item = self.unconfirmed_list.item(i)
             container = self.unconfirmed_list.itemWidget(item)
@@ -1362,61 +1408,66 @@ class AdminPanel(QMainWindow):
                 widget = child
                 break
             if widget:
-                widget.update_styles(False)
-                widget.setMinimumSize(self.unconfirmed_list.width() - 10, 150)
+                widget.update_styles(False)  # Обновление стилей виджета
+                widget.setMinimumSize(self.unconfirmed_list.width() - 10, 150)  # Минимальный размер виджета
                 widget.update()
                 widget.repaint()
                 container.update()
                 container.repaint()
-        self.unconfirmed_list.updateGeometry()
-        self.unconfirmed_list.viewport().update()
-        self.unconfirmed_list.repaint()
+        self.unconfirmed_list.updateGeometry()  # Обновление геометрии списка
+        self.unconfirmed_list.viewport().update()  # Обновление области просмотра
+        self.unconfirmed_list.repaint()  # Перерисовка списка
 
-        self.update_header_styles(False)
-        self.no_employees_label.setStyleSheet("color: #0D0D0D;")
-        logging.info("Светлая тема применена")
+        self.update_header_styles(False)  # Обновление стилей заголовков
+        self.no_employees_label.setStyleSheet("color: #0D0D0D;")  # Цвет метки отсутствия сотрудников
+        logging.info("Светлая тема применена")  # Логирование применения темы
 
+    # Применение тёмной темы ко всем элементам интерфейса
     def apply_dark_theme(self):
         self.current_theme = True
-        self.centralWidget().setStyleSheet("background-color: #2D2D2D;")
-        self.confirmation_page.setStyleSheet("background-color: #2D2D2D;")
+        self.centralWidget().setStyleSheet("background-color: #2D2D2D;")  # Фон главного виджета
+        self.confirmation_page.setStyleSheet("background-color: #2D2D2D;")  # Фон страницы подтверждения
         nav_frame = self.findChild(QFrame, "", Qt.FindDirectChildrenOnly)
         if nav_frame:
-            nav_frame.setStyleSheet("background-color: #0445C0; border-radius: 60px;")
+            nav_frame.setStyleSheet("background-color: #0445C0; border-radius: 60px;")  # Стили панели навигации
 
+        # Обновление стилей карточек настроек
         for i in range(self.settings_stack.count()):
             frame = self.settings_stack.widget(i)
-            frame.setStyleSheet("background-color: #3D3D3D; border-radius: 20px;")
+            frame.setStyleSheet("background-color: #3D3D3D; border-radius: 20px;")  # Фон карточки
             for child in frame.findChildren(QWidget):
                 if isinstance(child, QLabel) and child.objectName() == "card_title":
-                    child.setStyleSheet("color: #FFFFFF;")
+                    child.setStyleSheet("color: #FFFFFF;")  # Цвет заголовка карточки
                 elif isinstance(child, QLabel) and child.objectName() != "card_title":
-                    child.setStyleSheet("color: #CCCCCC;")
+                    child.setStyleSheet("color: #CCCCCC;")  # Цвет остальных меток
                 elif isinstance(child, QLineEdit):
-                    child.setStyleSheet("color: #FFFFFF; border: 2px solid #FFFFFF; border-radius: 15px; padding: 10px; background-color: #3D3D3D;")
+                    child.setStyleSheet("color: #FFFFFF; border: 2px solid #FFFFFF; border-radius: 15px; padding: 10px; background-color: #3D3D3D;")  # Стили полей ввода
                 elif isinstance(child, QPushButton) and child.objectName() in ["user_notif_toggle", "sound_notif_toggle"]:
-                    child.setStyleSheet(f"background-color: {'#47D155' if child.isChecked() else '#EB3232'}; color: #F2F2F2; border-radius: 15px; border: none;")
+                    child.setStyleSheet(f"background-color: {'#47D155' if child.isChecked() else '#EB3232'}; color: #F2F2F2; border-radius: 15px; border: none;")  # Стили переключателей уведомлений
                 elif isinstance(child, QPushButton):
-                    child.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 15px; border: none;")
+                    child.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 15px; border: none;")  # Стили остальных кнопок
 
+        # Обновление индикаторов активной карточки настроек
         active_index = self.settings_stack.currentIndex()
         for i, indicator in enumerate(self.indicators):
             if i == active_index:
-                indicator.setStyleSheet("background-color: #0554F2; border-radius: 7px;")
+                indicator.setStyleSheet("background-color: #0554F2; border-radius: 7px;")  # Активный индикатор
             else:
-                indicator.setStyleSheet("background-color: #666666; border-radius: 7px;")
+                indicator.setStyleSheet("background-color: #666666; border-radius: 7px;")  # Неактивные индикаторы
 
-        self.prev_btn.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 30px; border: none;")
-        self.next_btn.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 30px; border: none;")
+        self.prev_btn.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 30px; border: none;")  # Кнопка "Назад"
+        self.next_btn.setStyleSheet("background-color: #0554F2; color: #F2F2F2; border-radius: 30px; border: none;")  # Кнопка "Вперёд"
 
+        # Обновление стилей списка задач
         self.update_tasks_list_style()
         for delegate in self.tasks_list.findChildren(TaskItemDelegate):
-            delegate.set_theme(True)
-        self.tasks_list.viewport().update()
+            delegate.set_theme(True)  # Установка тёмной темы для делегата
+        self.tasks_list.viewport().update()  # Обновление области просмотра
 
+        # Обновление стилей списка сотрудников
         self.update_employees_list_style()
         for delegate in self.employees_list.findChildren(EmployeeItemDelegate):
-            delegate.set_theme(True)
+            delegate.set_theme(True)  # Установка тёмной темы для делегата
         for i in range(self.employees_list.count()):
             item = self.employees_list.item(i)
             container = self.employees_list.itemWidget(item)
@@ -1425,19 +1476,20 @@ class AdminPanel(QMainWindow):
                 widget = child
                 break
             if widget:
-                widget.update_styles(True)
-                widget.setFixedSize(900, 150)
+                widget.update_styles(True)  # Обновление стилей виджета сотрудника
+                widget.setFixedSize(900, 150)  # Фиксированный размер виджета
                 widget.update()
                 widget.repaint()
                 container.update()
                 container.repaint()
-        self.employees_list.updateGeometry()
-        self.employees_list.viewport().update()
-        self.employees_list.repaint()
+        self.employees_list.updateGeometry()  # Обновление геометрии списка
+        self.employees_list.viewport().update()  # Обновление области просмотра
+        self.employees_list.repaint()  # Перерисовка списка
 
+        # Обновление стилей списка неподтверждённых сотрудников
         self.update_unconfirmed_list_style()
         for delegate in self.unconfirmed_list.findChildren(UnconfirmedEmployeeItemDelegate):
-            delegate.set_theme(True)
+            delegate.set_theme(True)  # Установка тёмной темы для делегата
         for i in range(self.unconfirmed_list.count()):
             item = self.unconfirmed_list.item(i)
             container = self.unconfirmed_list.itemWidget(item)
@@ -1446,145 +1498,150 @@ class AdminPanel(QMainWindow):
                 widget = child
                 break
             if widget:
-                widget.update_styles(True)
-                widget.setMinimumSize(self.unconfirmed_list.width() - 10, 150)
+                widget.update_styles(True)  # Обновление стилей виджета
+                widget.setMinimumSize(self.unconfirmed_list.width() - 10, 150)  # Минимальный размер виджета
                 widget.update()
                 widget.repaint()
                 container.update()
                 container.repaint()
-        self.unconfirmed_list.updateGeometry()
-        self.unconfirmed_list.viewport().update()
-        self.unconfirmed_list.repaint()
+        self.unconfirmed_list.updateGeometry()  # Обновление геометрии списка
+        self.unconfirmed_list.viewport().update()  # Обновление области просмотра
+        self.unconfirmed_list.repaint()  # Перерисовка списка
 
-        self.update_header_styles(True)
-        self.no_employees_label.setStyleSheet("color: #FFFFFF;")
-        logging.info("Тёмная тема применена")
+        self.update_header_styles(True)  # Обновление стилей заголовков
+        self.no_employees_label.setStyleSheet("color: #FFFFFF;")  # Цвет метки отсутствия сотрудников
+        logging.info("Тёмная тема применена")  # Логирование применения темы
 
+    # Обновление стилей заголовков страниц
     def update_header_styles(self, dark_theme):
-        text_color = "#0D0D0D" if not dark_theme else "#FFFFFF"
-        
+        text_color = "#0D0D0D" if not dark_theme else "#FFFFFF"  # Выбор цвета текста
         for label in [self.findChild(QLabel, "tasks_label"), self.findChild(QLabel, "employees_label"), 
                       self.findChild(QLabel, "confirmation_label"), self.findChild(QLabel, "settings_label")]:
             if label:
-                label.setStyleSheet(f"color: {text_color}; background: transparent;")
+                label.setStyleSheet(f"color: {text_color}; background: transparent;")  # Применение стилей к заголовкам
 
+    # Загрузка списка сотрудников из базы данных
     def load_employees(self):
         try:
             session = Connect.create_connection()
             employees = session.query(User).filter_by(is_confirmed=True).all()
-            self.employees_list.clear()
+            self.employees_list.clear()  # Очистка списка
             logging.debug(f"Ширина employees_list: {self.employees_list.width()}")
             if not employees:
-                self.no_employees_label.setVisible(True)
+                self.no_employees_label.setVisible(True)  # Показ метки при отсутствии сотрудников
             else:
-                self.no_employees_label.setVisible(False)
+                self.no_employees_label.setVisible(False)  # Скрытие метки
                 for employee in employees:
-                    task_count = session.query(TaskLog).filter_by(user_id=employee.id).count()
-                    widget = EmployeeWidget(employee, task_count)
-                    widget.update_styles(self.current_theme)
-                    widget.setFixedSize(900, 150)
+                    task_count = session.query(TaskLog).filter_by(user_id=employee.id).count()  # Подсчёт задач сотрудника
+                    widget = EmployeeWidget(employee, task_count)  # Создание виджета сотрудника
+                    widget.update_styles(self.current_theme)  # Обновление стилей виджета
+                    widget.setFixedSize(900, 150)  # Фиксированный размер виджета
                     logging.debug(f"Размер карточки: {widget.size()}")
                     container = QWidget()
                     container_layout = QVBoxLayout(container)
-                    container_layout.setContentsMargins(10, 30, 10, 30)
+                    container_layout.setContentsMargins(10, 30, 10, 30)  # Отступы контейнера
                     container_layout.addWidget(widget)
-                    container.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+                    container.setAttribute(Qt.WA_TransparentForMouseEvents, False)  # Включение обработки событий мыши
                     item = QListWidgetItem(self.employees_list)
-                    item.setData(Qt.UserRole, employee)
-                    item.setSizeHint(QSize(900, 150 + 30 + 30))
+                    item.setData(Qt.UserRole, employee)  # Сохранение данных сотрудника
+                    item.setSizeHint(QSize(900, 150 + 30 + 30))  # Установка размера элемента
                     self.employees_list.addItem(item)
-                    self.employees_list.setItemWidget(item, container)
+                    self.employees_list.setItemWidget(item, container)  # Установка виджета в элемент списка
             session.close()
-            self.employees_list.updateGeometry()
-            self.employees_list.viewport().update()
-            self.employees_list.repaint()
-            self.employees_list.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+            self.employees_list.updateGeometry()  # Обновление геометрии списка
+            self.employees_list.viewport().update()  # Обновление области просмотра
+            self.employees_list.repaint()  # Перерисовка списка
+            self.employees_list.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)  # Полоса прокрутки всегда видна
         except Exception as e:
             logging.error(f"Ошибка загрузки сотрудников: {e}")
-            self.no_employees_label.setVisible(True)
+            self.no_employees_label.setVisible(True)  # Показ метки при ошибке
             session.close()
 
+    # Загрузка списка неподтверждённых сотрудников
     def load_unconfirmed_employees(self):
         try:
             session = Connect.create_connection()
             unconfirmed_users = session.query(User).filter_by(is_confirmed=False).all()
-            self.unconfirmed_list.clear()
+            self.unconfirmed_list.clear()  # Очистка списка
             for user in unconfirmed_users:
                 widget = UnconfirmedEmployeeWidget(
                     user,
-                    lambda u=user: self.confirm_user(u),
-                    lambda u=user: self.delete_user(u)
+                    lambda u=user: self.confirm_user(u),  # Функция подтверждения
+                    lambda u=user: self.delete_user(u)  # Функция удаления
                 )
-                widget.update_styles(self.current_theme)
-                widget.setMinimumSize(self.unconfirmed_list.width() - 10, 150)
+                widget.update_styles(self.current_theme)  # Обновление стилей виджета
+                widget.setMinimumSize(self.unconfirmed_list.width() - 10, 150)  # Минимальный размер виджета
                 container = QWidget()
                 container_layout = QVBoxLayout(container)
-                container_layout.setContentsMargins(0, 30, 0, 30)
+                container_layout.setContentsMargins(0, 30, 0, 30)  # Отступы контейнера
                 container_layout.addWidget(widget)
                 item = QListWidgetItem(self.unconfirmed_list)
-                item.setData(Qt.UserRole, user)
-                item.setSizeHint(QSize(self.unconfirmed_list.width() - 20, 150 + 30 + 30))
+                item.setData(Qt.UserRole, user)  # Сохранение данных пользователя
+                item.setSizeHint(QSize(self.unconfirmed_list.width() - 20, 150 + 30 + 30))  # Установка размера элемента
                 self.unconfirmed_list.addItem(item)
-                self.unconfirmed_list.setItemWidget(item, container)
+                self.unconfirmed_list.setItemWidget(item, container)  # Установка виджета в элемент списка
             session.close()
-            self.unconfirmed_list.updateGeometry()
-            self.unconfirmed_list.viewport().update()
-            self.unconfirmed_list.repaint()
+            self.unconfirmed_list.updateGeometry()  # Обновление геометрии списка
+            self.unconfirmed_list.viewport().update()  # Обновление области просмотра
+            self.unconfirmed_list.repaint()  # Перерисовка списка
         except Exception as e:
             logging.error(f"Ошибка загрузки неподтверждённых пользователей: {e}")
             session.close()
 
+    # Загрузка списка задач
     def load_tasks(self):
         try:
             session = Connect.create_connection()
             tasks = session.query(Task).all()
-            self.tasks_list.clear()
+            self.tasks_list.clear()  # Очистка списка
             for task in tasks:
                 item = QListWidgetItem(self.tasks_list)
-                item.setData(Qt.UserRole, task)
-                item.setSizeHint(QSize(900, 160))
+                item.setData(Qt.UserRole, task)  # Сохранение данных задачи
+                item.setSizeHint(QSize(900, 160))  # Установка размера элемента
                 self.tasks_list.addItem(item)
             session.close()
-            self.tasks_list.viewport().update()
+            self.tasks_list.viewport().update()  # Обновление области просмотра
         except Exception as e:
             logging.error(f"Ошибка загрузки задач: {e}")
             session.close()
 
+    # Добавление новой задачи
     def add_task(self):
-        dialog = TaskEditDialog(self.current_theme, parent=self)
+        dialog = TaskEditDialog(self.current_theme, parent=self)  # Открытие диалога редактирования задачи
         if dialog.exec():
-            new_task = dialog.get_task_data()  # (title, priority, description)
+            new_task = dialog.get_task_data()  # Получение данных задачи (title, priority, description)
             try:
                 session = Connect.create_connection()
                 task = Task(
                     title=new_task[0],
-                    priority=new_task[1],  # Передаём строку, например "Низкий"
+                    priority=new_task[1],  # Приоритет как строка
                     description=new_task[2]
                 )
                 session.add(task)
                 session.commit()
-                self.load_tasks()
+                self.load_tasks()  # Обновление списка задач
                 session.close()
                 logging.info(f"Задача добавлена: {new_task[0]}")
             except Exception as e:
                 logging.error(f"Ошибка добавления задачи: {e}")
                 session.rollback()
                 session.close()
-                QMessageBox.critical(self, "Ошибка", "Не удалось добавить задачу.")
+                QMessageBox.critical(self, "Ошибка", "Не удалось добавить задачу.")  # Сообщение об ошибке
 
+    # Открытие диалога редактирования задачи
     def open_task_edit_dialog(self, item):
         task = item.data(Qt.UserRole)
-        dialog = TaskEditDialog(self.current_theme, task, parent=self)
+        dialog = TaskEditDialog(self.current_theme, task, parent=self)  # Диалог редактирования
         if dialog.exec():
-            updated_task = dialog.get_task_data()  # (title, priority, description)
+            updated_task = dialog.get_task_data()  # Получение обновлённых данных
             try:
                 session = Connect.create_connection()
                 task = session.query(Task).filter_by(id=task.id).first()
                 task.title = updated_task[0]
-                task.priority = updated_task[1]  # Передаём строку, например "Низкий"
+                task.priority = updated_task[1]  # Приоритет как строка
                 task.description = updated_task[2]
                 session.commit()
-                self.load_tasks()
+                self.load_tasks()  # Обновление списка задач
                 session.close()
                 logging.info(f"Задача обновлена: {task.title}")
             except Exception as e:
@@ -1592,16 +1649,15 @@ class AdminPanel(QMainWindow):
                 session.rollback()
                 session.close()
 
+    # Отладочная функция для клика по сотруднику
     def debug_item_click(self, item):
         employee = item.data(Qt.UserRole)
         logging.debug(f"Clicked employee: {employee.username or employee.email or str(employee.id)}")
-        
-        # Открываем диалог редактирования сотрудника
-        dialog = EmployeeEditDialog(employee, self.current_theme, parent=self)
+        dialog = EmployeeEditDialog(employee, self.current_theme, parent=self)  # Диалог редактирования сотрудника
         if dialog.exec():
-            # После закрытия диалога обновляем список сотрудников
-            self.load_employees()
+            self.load_employees()  # Обновление списка сотрудников
 
+    # Подтверждение пользователя
     def confirm_user(self, user):
         try:
             session = Connect.create_connection()
@@ -1609,11 +1665,11 @@ class AdminPanel(QMainWindow):
             if user:
                 user.is_confirmed = True
                 session.commit()
-                self.load_unconfirmed_employees()
-                self.load_employees()
+                self.load_unconfirmed_employees()  # Обновление списка неподтверждённых
+                self.load_employees()  # Обновление списка сотрудников
                 session.close()
                 if self.user_notifications_enabled:
-                    notify_and_show_menu(user.id, self.sound_notifications_enabled)
+                    notify_and_show_menu(user.id, self.sound_notifications_enabled)  # Уведомление
                 logging.info(f"Пользователь подтверждён: {user.login}")
             else:
                 logging.warning(f"Пользователь не найден: {user.id}")
@@ -1622,15 +1678,16 @@ class AdminPanel(QMainWindow):
             session.rollback()
             session.close()
 
+    # Удаление пользователя
     def delete_user(self, user):
         try:
             session = Connect.create_connection()
-            user = session.query(User).filter_by(id=user.id).first
+            user = session.query(User).filter_by(id=user.id).first()
             if user:
                 session.delete(user)
                 session.commit()
-                self.load_unconfirmed_employees()
-                self.load_employees()
+                self.load_unconfirmed_employees()  # Обновление списка неподтверждённых
+                self.load_employees()  # Обновление списка сотрудников
                 logging.info(f"Пользователь удалён: {user.login}")
             else:
                 logging.warning(f"Пользователь не найден: {user.id}")
@@ -1639,12 +1696,13 @@ class AdminPanel(QMainWindow):
             logging.error(f"Ошибка удаления пользователя: {e}")
             session.rollback()
             session.close()
-            QMessageBox.critical(self, "Ошибка", "Не удалось удалить пользователя.")
+            QMessageBox.critical(self, "Ошибка", "Не удалось удалить пользователя.")  # Сообщение об ошибке
 
+    # Переключение уведомлений о новых пользователях
     def toggle_user_notifications(self):
         self.user_notifications_enabled = not self.user_notifications_enabled
-        self.user_notif_toggle.setText("Включено" if self.user_notifications_enabled else "Выключено")
-        self.user_notif_toggle.setStyleSheet(f"background-color: {'#47D155' if self.user_notifications_enabled else '#EB3232'}; color: #F2F2F2; border-radius: 15px; border: none;")
+        self.user_notif_toggle.setText("Включено" if self.user_notifications_enabled else "Выключено")  # Обновление текста
+        self.user_notif_toggle.setStyleSheet(f"background-color: {'#47D155' if self.user_notifications_enabled else '#EB3232'}; color: #F2F2F2; border-radius: 15px; border: none;")  # Обновление стиля
         try:
             session = Connect.create_connection()
             admin = session.query(Admin).filter_by(login=self.login).first()
@@ -1656,10 +1714,11 @@ class AdminPanel(QMainWindow):
         except Exception as e:
             logging.error(f"Ошибка сохранения настроек уведомлений: {e}")
 
+    # Переключение звуковых уведомлений
     def toggle_sound_notifications(self):
         self.sound_notifications_enabled = not self.sound_notifications_enabled
-        self.sound_notif_toggle.setText("Включено" if self.sound_notifications_enabled else "Выключено")
-        self.sound_notif_toggle.setStyleSheet(f"background-color: {'#47D155' if self.sound_notifications_enabled else '#EB3232'}; color: #F2F2F2; border-radius: 15px; border: none;")
+        self.sound_notif_toggle.setText("Включено" if self.sound_notifications_enabled else "Выключено")  # Обновление текста
+        self.sound_notif_toggle.setStyleSheet(f"background-color: {'#47D155' if self.sound_notifications_enabled else '#EB3232'}; color: #F2F2F2; border-radius: 15px; border: none;")  # Обновление стиля
         try:
             session = Connect.create_connection()
             admin = session.query(Admin).filter_by(login=self.login).first()
@@ -1671,15 +1730,16 @@ class AdminPanel(QMainWindow):
         except Exception as e:
             logging.error(f"Ошибка сохранения настроек звуковых уведомлений: {e}")
 
+    # Сохранение настроек уведомлений
     def save_notification_settings(self):
         try:
-            interval = int(self.interval_input.text()) * 1000
+            interval = int(self.interval_input.text()) * 1000  # Преобразование секунд в миллисекунды
             if interval < 1000:
                 QMessageBox.warning(self, "Ошибка", "Интервал должен быть не менее 1 секунды!")
                 return
             self.notification_interval = interval
             self.timer.stop()
-            self.timer.start(self.notification_interval)
+            self.timer.start(self.notification_interval)  # Перезапуск таймера с новым интервалом
             session = Connect.create_connection()
             admin = session.query(Admin).filter_by(login=self.login).first()
             if admin:
@@ -1689,11 +1749,12 @@ class AdminPanel(QMainWindow):
             logging.info(f"Интервал уведомлений изменён на: {self.notification_interval} мс")
             QMessageBox.information(self, "Успех", "Настройки уведомлений сохранены!")
         except ValueError:
-            QMessageBox.warning(self, "Ошибка", "Введите корректное число для интервала!")
+            QMessageBox.warning(self, "Ошибка", "Введите корректное число для интервала!")  # Ошибка ввода
         except Exception as e:
             logging.error(f"Ошибка сохранения настроек уведомлений: {e}")
-            QMessageBox.critical(self, "Ошибка", "Не удалось сохранить настройки уведомлений.")
+            QMessageBox.critical(self, "Ошибка", "Не удалось сохранить настройки уведомлений.")  # Общая ошибка
 
+    # Получение количества неподтверждённых пользователей
     def get_unconfirmed_count(self):
         try:
             session = Connect.create_connection()
@@ -1705,6 +1766,7 @@ class AdminPanel(QMainWindow):
             session.close()
             return 0
 
+    # Получение количества подтверждённых сотрудников
     def get_employee_count(self):
         try:
             session = Connect.create_connection()
@@ -1716,6 +1778,7 @@ class AdminPanel(QMainWindow):
             session.close()
             return 0
 
+    # Проверка новых пользователей и показ уведомлений
     def check_new_users(self):
         current_unconfirmed_count = self.get_unconfirmed_count()
         current_employee_count = self.get_employee_count()
@@ -1728,7 +1791,7 @@ class AdminPanel(QMainWindow):
                     self.current_theme,
                     self
                 )
-                notification.show_notification()
+                notification.show_notification()  # Показ уведомления
                 logging.info(f"Уведомление: Новые пользователи ({diff})")
             elif current_employee_count > self.last_employee_count:
                 diff = current_employee_count - self.last_employee_count
@@ -1737,24 +1800,26 @@ class AdminPanel(QMainWindow):
                     self.current_theme,
                     self
                 )
-                notification.show_notification()
+                notification.show_notification()  # Показ уведомления
                 logging.info(f"Уведомление: Новые сотрудники ({diff})")
 
         self.last_unconfirmed_count = current_unconfirmed_count
         self.last_employee_count = current_employee_count
 
+    # Выход из системы
     def logout(self):
-        self.hide()
-        self.login_window = LoginWindow()
+        self.hide()  # Скрытие текущего окна
+        self.login_window = LoginWindow()  # Открытие окна авторизации
         self.login_window.show()
-        logging.info("Выход из системы")
+        logging.info("Выход из системы")  # Логирование выхода
 
+    # Обработка изменения размера окна
     def resizeEvent(self, event):
         super().resizeEvent(event)
         for i in range(self.unconfirmed_list.count()):
             item = self.unconfirmed_list.item(i)
             widget = self.unconfirmed_list.itemWidget(item)
             if isinstance(widget, UnconfirmedEmployeeWidget):
-                widget.setMinimumSize(self.unconfirmed_list.width() - 10, 150)
-                item.setSizeHint(QSize(self.unconfirmed_list.width() - 20, 150 + 30 + 30))
-        self.unconfirmed_list.viewport().update()
+                widget.setMinimumSize(self.unconfirmed_list.width() - 10, 150)  # Обновление минимального размера
+                item.setSizeHint(QSize(self.unconfirmed_list.width() - 20, 150 + 30 + 30))  # Обновление размера элемента
+        self.unconfirmed_list.viewport().update()  # Обновление области просмотра

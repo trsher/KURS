@@ -6,38 +6,33 @@ import pytz
 import logging
 import os
 
-# Настройка логирования для отображения ошибок
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
-
+# Перечисление для уровней приоритета задач
 class PriorityLevel(enum.Enum):
     Low = "Низкий"
     Medium = "Средний"
     High = "Высокий"
 
-
+# Модель администратора
 class Admin(Base):
     __tablename__ = 'admins'
     
     login = Column(String, unique=True, primary_key=True)
     password = Column(String, nullable=False)
     username = Column(String, nullable=False)
-    # Theme preference - boolean (False = light, True = dark)
     theme = Column(Boolean, default=False)
-    # Интервал проверки в миллисекундах
     notification_interval = Column(Integer, default=5000)
-    # Sound notifications toggle (добавлено для совместимости)
     sound_notifications = Column(Boolean, default=True)
-    # New users notifications toggle (добавлено для совместимости)
     new_user_notifications = Column(Boolean, default=True)
     
     def __repr__(self):
         return f"<Admin {self.login}>"
 
-
+# Модель пользователя
 class User(Base):
     __tablename__ = 'users'
     
@@ -54,7 +49,7 @@ class User(Base):
     def __str__(self):
         return self.username or f"User {self.id}"
 
-
+# Модель задачи
 class Task(Base):
     __tablename__ = 'tasks'
     
@@ -68,7 +63,7 @@ class Task(Base):
     user = relationship("User", back_populates="tasks")
     logs = relationship("TaskLog", back_populates="task")
 
-
+# Модель лога задач
 class TaskLog(Base):
     __tablename__ = 'task_logs'
     
@@ -80,28 +75,27 @@ class TaskLog(Base):
     task = relationship("Task", back_populates="logs")
     user = relationship("User", back_populates="logs")
 
-
+# Класс для работы с подключением к базе данных
 class Connect:
+    # Создание экземпляра движка базы данных
     @staticmethod
     def create_engine_instance():
         try:
-            # Get database connection parameters from environment variables
             db_host = os.getenv("PGHOST", "localhost")
             db_port = os.getenv("PGPORT", "5432")
             db_name = os.getenv("PGDATABASE", "tasklist")
             db_user = os.getenv("PGUSER", "postgres")
             db_password = os.getenv("PGPASSWORD", "1234")
             
-            # Create database URL
             db_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
             
             logger.info(f"Connecting to database: {db_host}:{db_port}/{db_name} as {db_user}")
-            # Create and return engine
             return create_engine(db_url)
         except Exception as e:
             logger.error(f"Error creating database engine: {e}")
             raise
 
+    # Создание сессии подключения к базе данных
     @staticmethod
     def create_connection():
         try:
@@ -114,17 +108,15 @@ class Connect:
             logger.error(f"Ошибка подключения к базе данных: {e}")
             raise
     
+    # Инициализация базы данных и создание учетной записи администратора
     @staticmethod
     def initialize_database():
-        # Create engine and tables
         engine = Connect.create_engine_instance()
         Base.metadata.create_all(engine)
         
-        # Initialize session
         Session = sessionmaker(bind=engine)
         session = Session()
         
-        # Check if admin exists, if not add default admin
         if session.query(Admin).count() == 0:
             admin = Admin(
                 login="admin",

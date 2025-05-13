@@ -3,9 +3,9 @@ from PySide6.QtCore import Qt, QSize, QUrl
 from PySide6.QtGui import QFont, QPainter, QPen, QPixmap, QBrush, QColor, QIcon
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 
-# Кэш для аватаров
 avatar_cache = {}
 
+# Кнопка с плюсом для добавления элементов
 class CustomAddButton(QPushButton):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -22,6 +22,7 @@ class CustomAddButton(QPushButton):
             }
         """)
 
+    # Отрисовка знака плюс на кнопке
     def paintEvent(self, event):
         super().paintEvent(event)
         painter = QPainter(self)
@@ -38,6 +39,7 @@ class CustomAddButton(QPushButton):
         painter.drawLine(center_x, center_y - half_length, center_x, center_y + half_length)
         painter.drawLine(center_x - half_length, center_y, center_x + half_length, center_y)
 
+# Закругленная кнопка с эффектом наведения и текстом
 class RoundedButton(QPushButton):
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
@@ -51,14 +53,17 @@ class RoundedButton(QPushButton):
         self.radius = 60
         self.is_hovered = False
 
+    # Обработка события наведения курсора
     def enterEvent(self, event):
         self.is_hovered = True
         self.update()
 
+    # Обработка события ухода курсора
     def leaveEvent(self, event):
         self.is_hovered = False
         self.update()
 
+    # Отрисовка закругленной кнопки с текстом
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -69,6 +74,7 @@ class RoundedButton(QPushButton):
         painter.setFont(self.font())
         painter.drawText(self.rect(), Qt.AlignCenter, self.text())
 
+# Виджет для отображения аватара
 class AvatarWidget(QWidget):
     def __init__(self, parent=None, clickable=False):
         super().__init__(parent)
@@ -76,7 +82,6 @@ class AvatarWidget(QWidget):
         self.avatar_label.setFixedSize(120, 120)
         self.avatar_label.setScaledContents(True)
         self.avatar_label.setStyleSheet("border-radius: 40px; background: transparent; margin: 10px;")
-        print(f"AvatarWidget инициализирован, размер: {self.avatar_label.size()}")
         self.manager = QNetworkAccessManager()
         self.manager.finished.connect(self.on_avatar_downloaded)
         self.photo_path = None
@@ -84,41 +89,35 @@ class AvatarWidget(QWidget):
         if clickable:
             self.avatar_label.mousePressEvent = self.load_photo
 
+    # Загрузка аватара по URL или локальному пути
     def load_avatar(self, photo_url):
         default_avatar_path = "icons/image.png"
-        print(f"Загрузка аватара: photo_url={photo_url}")
         try:
             if not photo_url:
-                print("Путь к фотографии пустой, загружаем стандартную аватарку")
                 self.load_default_avatar(default_avatar_path)
                 self.photo_path = None
                 return
             if photo_url in avatar_cache:
-                print(f"Фотография найдена в кэше: {photo_url}")
                 self.avatar_label.setPixmap(self.round_pixmap(avatar_cache[photo_url]))
                 self.photo_path = photo_url
                 return
             if not photo_url.startswith("http"):
-                print(f"Попытка загрузки локального файла: {photo_url}")
                 pixmap = QPixmap(photo_url)
                 if not pixmap.isNull():
                     pixmap = pixmap.scaled(120, 120, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
                     avatar_cache[photo_url] = pixmap
                     self.avatar_label.setPixmap(self.round_pixmap(pixmap))
                     self.photo_path = photo_url
-                    print("Локальный файл успешно загружен")
                 else:
-                    print(f"Не удалось загрузить локальный файл: {photo_url}")
                     self.load_default_avatar(default_avatar_path)
                     self.photo_path = None
                 return
-            print(f"Попытка загрузки фотографии по URL: {photo_url}")
             self.manager.get(QNetworkRequest(QUrl(photo_url)))
         except Exception as e:
-            print(f"Ошибка загрузки аватара: {e}")
             self.load_default_avatar(default_avatar_path)
             self.photo_path = None
 
+    # Обработка загруженного аватара из сети
     def on_avatar_downloaded(self, reply):
         default_avatar_path = "icons/image.png"
         try:
@@ -131,29 +130,25 @@ class AvatarWidget(QWidget):
                 avatar_cache[reply.url().toString()] = pixmap
                 self.avatar_label.setPixmap(rounded_pixmap)
                 self.photo_path = reply.url().toString()
-                print(f"Фотография успешно загружена по URL: {self.photo_path}")
             else:
-                print("Не удалось загрузить изображение по URL")
                 self.load_default_avatar(default_avatar_path)
                 self.photo_path = None
         except Exception as e:
-            print(f"Ошибка обработки аватара: {e}")
             self.load_default_avatar(default_avatar_path)
             self.photo_path = None
         reply.deleteLater()
 
+    # Загрузка стандартного аватара
     def load_default_avatar(self, default_path):
-        print(f"Загрузка стандартной аватарки: {default_path}")
         pixmap = QPixmap(default_path)
         if not pixmap.isNull():
             pixmap = pixmap.scaled(120, 120, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
             self.avatar_label.setPixmap(self.round_pixmap(pixmap))
-            print("Стандартная аватарка успешно загружена")
         else:
-            print(f"Стандартная аватарка не найдена: {default_path}")
             self.avatar_label.setText("Нет фото")
         self.photo_path = None
 
+    # Создание закругленного изображения
     def round_pixmap(self, pixmap):
         size = pixmap.size()
         rounded = QPixmap(size)
@@ -173,8 +168,8 @@ class AvatarWidget(QWidget):
         painter.end()
         return rounded
 
+    # Загрузка фотографии через диалог выбора файла
     def load_photo(self, event):
-        print("Вызов метода load_photo: открытие диалога выбора файла")
         file_name, _ = QFileDialog.getOpenFileName(
             self, "Выбрать фотографию", "", "Изображения (*.png *.jpg *.jpeg *.bmp)"
         )
@@ -185,13 +180,12 @@ class AvatarWidget(QWidget):
                 avatar_cache[file_name] = pixmap
                 self.avatar_label.setPixmap(self.round_pixmap(pixmap))
                 self.photo_path = file_name
-                print(f"Выбрана новая фотография: {file_name}")
             else:
-                print(f"Не удалось загрузить изображение: {file_name}")
                 self.load_default_avatar("icons/image.png")
         else:
-            print("Выбор файла отменён пользователем")
+            pass
 
+# Виджет для отображения информации о сотруднике
 class EmployeeWidget(AvatarWidget):
     def __init__(self, user, completed_tasks, parent=None):
         super().__init__(parent, clickable=False)
@@ -225,6 +219,7 @@ class EmployeeWidget(AvatarWidget):
 
         self.load_avatar(user.photo)
 
+    # Отрисовка виджета с закругленными углами
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -237,6 +232,7 @@ class EmployeeWidget(AvatarWidget):
         painter.end()
         super().paintEvent(event)
 
+    # Обновление стилей в зависимости от темы
     def update_styles(self, theme=False):
         self.theme = theme
         text_color = "#0D0D0D" if not theme else "#FFFFFF"
@@ -246,9 +242,11 @@ class EmployeeWidget(AvatarWidget):
         self.update()
         self.repaint()
 
+    # Определение предпочтительного размера виджета
     def sizeHint(self):
         return QSize(900, 150)
 
+# Виджет для неподтвержденных сотрудников
 class UnconfirmedEmployeeWidget(AvatarWidget):
     def __init__(self, user, confirm_callback, delete_callback, parent=None):
         super().__init__(parent, clickable=False)
@@ -296,6 +294,7 @@ class UnconfirmedEmployeeWidget(AvatarWidget):
 
         self.load_avatar(user.photo)
 
+    # Отрисовка виджета с закругленными углами
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -308,6 +307,7 @@ class UnconfirmedEmployeeWidget(AvatarWidget):
         painter.end()
         super().paintEvent(event)
 
+    # Обновление стилей в зависимости от темы
     def update_styles(self, theme=False):
         self.theme = theme
         text_color = "#0D0D0D" if not theme else "#FFFFFF"
@@ -320,5 +320,6 @@ class UnconfirmedEmployeeWidget(AvatarWidget):
         self.update()
         self.repaint()
 
+    # Определение предпочтительного размера виджета
     def sizeHint(self):
         return QSize(self.width(), 100)
